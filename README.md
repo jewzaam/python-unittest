@@ -106,3 +106,123 @@ Ran 2 tests in 0.001s
 FAILED (failures=1)
 make: *** [Makefile:10: test-container] Error 1
 ```
+
+## Run Tests: In a Container With Dependencies
+
+If you have dependencies it is annoying to install them in a fresh base container for every test run.  Instead, pre-build the test image with dependencies!  For this you need to:
+
+1. have a way to delete your test container
+1. build the test container
+1. use the test container
+
+To delete it we create a `make clean` target:
+
+```
+.PHONY: clean
+clean:
+    $(CONTAINER_ENGINE) rmi $(REPO_NAME):test || true
+```
+
+To build the test conatiner we need a [Dockerfile](build/Dockerfile.test):
+
+```
+FROM python:3
+
+# Install modules
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+```
+
+A make target to build the test container:
+
+```
+.PHONY: build-test-container
+build-test-container:
+	$(CONTAINER_ENGINE) build -t $(REPO_NAME):test -f build/Dockerfile.test .
+```
+
+And, finally, update `test-container` to use the new container:
+
+```
+.PHONY: test-container
+test-container: build-test-container
+	$(CONTAINER_ENGINE) run --rm -v `pwd -P`:`pwd -P` $(REPO_NAME):test /bin/sh -c "cd `pwd`; python -m unittest discover src -vvv"; \
+```
+
+First time you test the container is created.  For me it takes 21 seconds:
+
+```bash
+$ make test-container
+podman build -t python-unittest:test -f build/Dockerfile.test .
+STEP 1: FROM python:3
+STEP 2: COPY requirements.txt ./
+--> cbe94584988
+STEP 3: RUN pip install -r requirements.txt
+Collecting semver==2.8.1
+  Downloading semver-2.8.1-py2.py3-none-any.whl (5.1 kB)
+Installing collected packages: semver
+Successfully installed semver-2.8.1
+STEP 4: COMMIT python-unittest:test
+--> 162864bf5c4
+162864bf5c46cad562ac1fcf932ced4dd2960fd4149b79d96684f2b9adaad920
+podman run --rm -v `pwd -P`:`pwd -P` python-unittest:test /bin/sh -c "cd `pwd`; python -m unittest discover src -vvv"; \
+
+test_major (test_modules.TestModules) ... ok
+test_failure (test_example.TestMyStuff) ... FAIL
+test_success (test_example.TestMyStuff) ... ok
+
+======================================================================
+FAIL: test_failure (test_example.TestMyStuff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".../python-unittest/src/test_example.py", line 8, in test_failure
+    self.assertFalse(True) # will fail
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=1)
+make: *** [Makefile:22: test-container] Error 1
+real 20.53
+user 8.18
+sys 5.66
+```
+
+And it is reused on subsequent runs is faster, 2 seconds:
+
+```bash
+$ time -p make test-container
+podman build -t python-unittest:test -f build/Dockerfile.test .
+STEP 1: FROM python:3
+STEP 2: COPY requirements.txt ./
+--> Using cache ec767d77b7950cc3afa3e21fae8441ac49f94205d18e6cef086d62d2b998dff3
+STEP 3: RUN pip install -r requirements.txt
+--> Using cache e41a6f015adbb66e3a0817a54bc5cae8346bc9c6916b08a27836bf3af6090b7a
+STEP 4: COMMIT python-unittest:test
+--> e41a6f015ad
+e41a6f015adbb66e3a0817a54bc5cae8346bc9c6916b08a27836bf3af6090b7a
+podman run --rm -v `pwd -P`:`pwd -P` python-unittest:test /bin/sh -c "cd `pwd`; python -m unittest discover src -vvv"; \
+
+test_major (test_modules.TestModules) ... ok
+test_failure (test_example.TestMyStuff) ... FAIL
+test_success (test_example.TestMyStuff) ... ok
+
+======================================================================
+FAIL: test_failure (test_example.TestMyStuff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".../python-unittest/src/test_example.py", line 8, in test_failure
+    self.assertFalse(True) # will fail
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=1)
+make: *** [Makefile:22: test-container] Error 1
+real 1.71
+user 0.78
+sys 0.37
+```
+
