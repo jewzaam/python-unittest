@@ -32,7 +32,7 @@ class TestMyStuff(unittest.TestCase):
 
 This file should be placed in the same source tree as your testable code so it can be loaded.  See [src/test_example.py](src/test_example.py)
 
-# Run Tests
+## Run Tests
 
 You can run ALL the tests in a directory with: `python -m unittest discover <directory>`
 
@@ -73,4 +73,36 @@ Ran 2 tests in 0.001s
 
 FAILED (failures=1)
 make: *** [Makefile:3: test] Error 1
+```
+
+## Run Tests: In a Container
+
+To make sure the tests can run anywhere it's a good idea to run them in a container.
+
+```bash
+podman run --rm -v `pwd -P`:`pwd -P` python:3 /bin/sh -c "cd `pwd`; python -m unittest discover src -vvv"
+```
+
+This is also added as a make target `test-container`.  We get the same result but now it's portable!
+
+```bash
+$ make test-container
+podman run --rm -v `pwd -P`:`pwd -P` python:3 /bin/sh -c "cd `pwd`; python -m unittest discover src -vvv"; \
+
+test_failure (test_example.TestMyStuff) ... FAIL
+test_success (test_example.TestMyStuff) ... ok
+
+======================================================================
+FAIL: test_failure (test_example.TestMyStuff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".../python-unittest/src/test_example.py", line 8, in test_failure
+    self.assertFalse(True) # will fail
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+FAILED (failures=1)
+make: *** [Makefile:10: test-container] Error 1
 ```
