@@ -1,6 +1,6 @@
 # Adding Python Unit Tests
 
-I just added some basic unit tests for a project at work ([managed-cluster-config-webhooks](https://github.com/openshift/managed-cluster-validating-webhooks)) and it was super easy to add.  This repo was created to share how easy it is to setup and use.
+I just added some basic unit tests for a project ([managed-cluster-config-webhooks](https://github.com/openshift/managed-cluster-validating-webhooks)) and it was super easy to add.  This repo was created to share how easy it is to setup and use.
 
 **NOTE** the [PR](https://github.com/openshift/managed-cluster-validating-webhooks/pull/40) including the test isn't merged as of writing this.. things may change based on review.
 
